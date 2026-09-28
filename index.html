@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GDG Minecraft Sliding Puzzle</title>
+  <!-- Google Font: Press Start 2P -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --mc-stone-dark: #1b1b1b;
+      --mc-stone-mid: #2b2b2b;
+      --mc-stone-light: #3c3c3c;
+      --mc-border-light: #5a5a5a;
+      --mc-border-dark: #121212;
+      --mc-green: #55ff55;
+      --mc-gold: #ffaa00;
+      --mc-blue-btn: #3b82f6;
+      --mc-gui-bg: #c6c6c6;
+      --gdg-blue: #4285F4;
+      --gdg-red: #EA4335;
+      --gdg-green: #34A853;
+      --gdg-yellow: #FBBC04;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #121212;
+      font-family: 'Press Start 2P', monospace, sans-serif;
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Dynamic Minecraft Deepslate / Stone Background Pattern */
+    .bg-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -2;
+      background: radial-gradient(circle at center, #26262b 0%, #0d0d11 100%);
+    }
+
+    /* Floating Minecraft Pixel Particles */
+    #particle-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    /* Minecraft Title Styling */
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      color: #ffffff;
+      text-shadow: 4px 4px 0px #000000, -2px -2px 0px #3c3c3c;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .header h1 span.gdg-g { color: #4285F4; }
+    .header h1 span.gdg-d { color: #EA4335; }
+    .header h1 span.gdg-g2 { color: #FBBC04; }
+    .header h1 span.mc-craft { color: #34A853; }
+
+    .header p {
+      font-size: 0.65rem;
+      color: #aaaaaa;
+      text-shadow: 2px 2px 0px #000000;
+      line-height: 1.4;
+    }
+
+    /* Minecraft GUI Container Box */
+    .mc-container {
+      background-color: var(--mc-stone-mid);
+      border: 6px solid #000000;
+      box-shadow: 
+        inset 4px 4px 0px #4a4a4a,
+        inset -4px -4px 0px #151515,
+        0 10px 30px rgba(0,0,0,0.8);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 480px;
+      width: 100%;
+    }
+
+    /* Minecraft HUD / Stats Bar */
+    .stats-bar {
+      width: 100%;
+      background-color: #151515;
+      border: 4px solid #000;
+      box-shadow: inset -2px -2px 0px #2a2a2a, inset 2px 2px 0px #080808;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 5px;
+      margin-bottom: 20px;
+      font-size: 0.65rem;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .stat-label {
+      color: #8b8b8b;
+      font-size: 0.55rem;
+    }
+
+    .stat-value {
+      color: var(--mc-gold);
+      text-shadow: 2px 2px 0 #000;
+    }
+
+    /* Puzzle Frame & Grid */
+    .puzzle-frame {
+      position: relative;
+      width: 360px;
+      height: 360px;
+      background-color: #0c0c0c;
+      border: 6px solid #000;
+      box-shadow: inset 4px 4px 0 #000, inset -4px -4px 0 #282828;
+      padding: 6px;
+      margin-bottom: 20px;
+    }
+
+    .puzzle-grid {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 4px;
+      background-color: #1a1a1a;
+    }
+
+    /* Individual Tile */
+    .tile {
+      position: absolute;
+      width: 110px;
+      height: 110px;
+      background-repeat: no-repeat;
+      cursor: pointer;
+      border: 4px solid;
+      border-color: #585858 #181818 #181818 #585858;
+      box-shadow: inset 2px 2px 0 #787878, inset -2px -2px 0 #0c0c0c;
+      transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1);
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+      padding: 4px;
+    }
+
+    .tile:hover {
+      filter: brightness(1.15);
+      border-color: #ffffff #383838 #383838 #ffffff;
+    }
+
+    .tile.empty {
+      background: #080808 !important;
+      border: 4px dashed #222222;
+      box-shadow: inset 4px 4px 8px #000000;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .tile-number {
+      background-color: rgba(0, 0, 0, 0.75);
+      color: #ffffff;
+      font-size: 0.6rem;
+      padding: 3px 5px;
+      border: 2px solid #000;
+      box-shadow: 1px 1px 0 #3c3c3c;
+      pointer-events: none;
+    }
+
+    .tile-number.hidden {
+      display: none;
+    }
+
+    /* Control Buttons Toolbar */
+    .controls {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .mc-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.65rem;
+      color: #ffffff;
+      background-color: #5c5c5c;
+      border: 4px solid;
+      border-color: #8b8b8b #2a2a2a #2a2a2a #8b8b8b;
+      box-shadow: inset -2px -2px 0px #181818, inset 2px 2px 0px #9e9e9e, 0 4px 0 #000;
+      padding: 12px 8px;
+      cursor: pointer;
+      text-align: center;
+      text-shadow: 2px 2px 0 #000;
+      transition: all 0.05s ease;
+    }
+
+    .mc-btn:hover {
+      background-color: #6d6d6d;
+      color: var(--mc-green);
+    }
+
+    .mc-btn:active {
+      transform: translateY(3px);
+      box-shadow: inset 2px 2px 0px #181818, 0 1px 0 #000;
+      border-color: #2a2a2a #8b8b8b #8b8b8b #2a2a2a;
+    }
+
+    .mc-btn-primary {
+      background-color: #2e6b2e;
+      border-color: #4eb54e #143514 #143514 #4eb54e;
+    }
+    .mc-btn-primary:hover {
+      background-color: #3b8a3b;
+      color: #ffffff;
+    }
+
+    .option-bar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.55rem;
+      color: #cccccc;
+      padding: 0 4px;
+    }
+
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .mc-checkbox {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background-color: #000;
+      border: 2px solid #555;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .mc-checkbox:checked {
+      background-color: var(--mc-green);
+      border-color: #fff;
+    }
+
+    .mc-checkbox:checked::after {
+      content: '✓';
+      position: absolute;
+      color: #000;
+      font-size: 10px;
+      top: -1px;
+      left: 2px;
+      font-weight: bold;
+    }
+
+    /* Modal Dialog (Minecraft Inventory Style) */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mc-modal {
+      background-color: #c6c6c6;
+      border: 6px solid #000;
+      box-shadow: inset 4px 4px 0 #ffffff, inset -4px -4px 0 #555555, 0 20px 50px #000;
+      padding: 24px;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+      color: #373737;
+      transform: scale(0.85);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .modal-overlay.active .mc-modal {
+      transform: scale(1);
+    }
+
+    .mc-modal h2 {
+      font-size: 1.1rem;
+      color: #212121;
+      margin-bottom: 12px;
+      text-shadow: 1px 1px 0 #ffffff;
+    }
+
+    .mc-modal p {
+      font-size: 0.65rem;
+      color: #2b2b2b;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .achievement-banner {
+      background-color: #212121;
+      border: 4px solid #000;
+      box-shadow: inset 2px 2px 0 #444;
+      color: #fff;
+      padding: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .achievement-icon {
+      width: 36px;
+      height: 36px;
+      background-color: var(--gdg-blue);
+      border: 2px solid #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .achievement-text .title {
+      color: var(--mc-gold);
+      font-size: 0.55rem;
+      margin-bottom: 4px;
+    }
+
+    .achievement-text .desc {
+      color: #ffffff;
+      font-size: 0.6rem;
+    }
+
+    /* Target Logo Hint Preview Popover */
+    .hint-modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background-color: #1e1e1e;
+      border: 6px solid #000;
+      padding: 16px;
+      z-index: 50;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 0 40px rgba(0,0,0,0.9);
+    }
+
+    .hint-modal.active {
+      display: flex;
+    }
+
+    .hint-modal img {
+      width: 220px;
+      height: 220px;
+      border: 4px solid #3c3c3c;
+      margin-bottom: 12px;
+    }
+
+    /* Toast Notification for Achievements */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .toast {
+      background-color: #212121;
+      border: 4px solid #000;
+      box-shadow: inset 2px 2px 0 #555, 4px 4px 0 rgba(0,0,0,0.5);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transform: translateX(120%);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    @media (max-width: 480px) {
+      .header h1 { font-size: 1.3rem; }
+      .puzzle-frame { width: 300px; height: 300px; }
+      .tile { width: 90px; height: 90px; }
+      .mc-container { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Animated Particle Background -->
+  <div class="bg-canvas"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>
+      <span class="gdg-g">G</span><span class="gdg-d">D</span><span class="gdg-g2">G</span> 
+      <span class="mc-craft">CRAFT</span>
+    </h1>
+    <p>MINECRAFT SLIDING PUZZLE</p>
+  </div>
+
+  <!-- Main Minecraft GUI Box -->
+  <div class="mc-container">
+    
+    <!-- Stats HUD -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-label">MOVES</span>
+        <span class="stat-value" id="moves-count">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">TIME</span>
+        <span class="stat-value" id="timer-display">00:00</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">WINS</span>
+        <span class="stat-value" id="wins-count">0</span>
+      </div>
+    </div>
+
+    <!-- Puzzle Game Board Frame -->
+    <div class="puzzle-frame">
+      <div class="puzzle-grid" id="puzzle-grid">
+        <!-- 9 Tile Slots generated via JavaScript -->
+      </div>
+
+      <!-- Hint Preview Overlay -->
+      <div class="hint-modal" id="hint-modal">
+        <span style="font-size:0.6rem; color:#aaa; margin-bottom:8px;">TARGET GDG LOGO</span>
+        <canvas id="hint-canvas" width="220" height="220"></canvas>
+        <button class="mc-btn" onclick="toggleHint(false)" style="margin-top:8px; padding:6px 12px;">CLOSE</button>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button class="mc-btn mc-btn-primary" onclick="shuffleGame()">SHUFFLE</button>
+      <button class="mc-btn" onclick="toggleHint(true)">HINT LOGO</button>
+    </div>
+
+    <!-- Option Toggles -->
+    <div class="option-bar">
+      <label class="toggle-label">
+        <input type="checkbox" class="mc-checkbox" id="num-toggle" checked onchange="toggleNumbers()">
+        <span>NUMBERS</span>
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" class="mc-checkbox" id="sound-toggle" checked>
+        <span>SOUND SFX</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Achievement Toast -->
+  <div class="toast-container">
+    <div class="toast" id="achievement-toast">
+      <div class="achievement-icon">🏆</div>
+      <div class="achievement-text">
+        <div class="title">ACHIEVEMENT UNLOCKED!</div>
+        <div class="desc">GDG Puzzle Master</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Win Celebration Modal -->
+  <div class="modal-overlay" id="win-modal">
+    <div class="mc-modal">
+      <h2>PUZZLE SOLVED!</h2>
+      
+      <div class="achievement-banner">
+        <div class="achievement-icon">⚡</div>
+        <div class="achievement-text">
+          <div class="title">STAGE CLEARED!</div>
+          <div class="desc">You aligned the GDG Logo!</div>
+        </div>
+      </div>
+
+      <p>
+        Final Moves: <strong id="modal-moves" style="color:var(--mc-gold)">0</strong><br>
+        Time Elapsed: <strong id="modal-time" style="color:var(--mc-gold)">00:00</strong>
+      </p>
+
+      <button class="mc-btn mc-btn-primary" onclick="closeWinModalAndRestart()" style="width:100%; padding:14px;">
+        NEXT ROUND ➔
+      </button>
+    </div>
+  </div>
+
+  <!-- Hidden Offscreen Canvas for Rendering GDG Logo Image -->
+  <canvas id="gdg-canvas" width="450" height="450" style="display:none;"></canvas>
+
+  <script>
+    /* ==========================================================
+       1. WEB AUDIO API SYNTHESIZER (Minecraft SFX)
+       ========================================================== */
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function isSoundEnabled() {
+      return document.getElementById('sound-toggle').checked;
+    }
+
+    // Tile Swap Pop Sound
+    function playTileSound() {
+      if (!isSoundEnabled()) return;
+      try {
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.08);
+
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.08);
+      } catch (e) {}
+    }
+
+    // Minecraft XP Level Up Chime (Ascending Pitch Sequence)
+    function playWinSound() {
+      if (!isSoundEnabled()) return;
+      try {
+        const ctx = getAudioContext();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, index) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.09);
+
+          gain.gain.setValueAtTime(0.3, ctx.currentTime + index * 0.09);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + index * 0.09 + 0.25);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(ctx.currentTime + index * 0.09);
+          osc.stop(ctx.currentTime + index * 0.09 + 0.25);
+        });
+      } catch (e) {}
+    }
+
+    // Fast Shuffle Sound
+    function playShuffleSound() {
+      if (!isSoundEnabled()) return;
+      try {
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(220, ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(440, ctx.currentTime + 0.15);
+
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      } catch (e) {}
+    }
+
+
+    /* ==========================================================
+       2. GDG LOGO CANVAS GENERATOR
+       Renders exact official GDG logo colors:
+       Blue (#4285F4), Red (#EA4335), Green (#34A853), Yellow (#FBBC04)
+       ========================================================== */
+    const canvas = document.getElementById('gdg-canvas');
+    const ctx = canvas.getContext('2d');
+    let gdgDataUrl = '';
+
+    function drawGDGLogo() {
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Dark Minecraft Slate Texture Background inside frame
+      ctx.fillStyle = '#16171b';
+      ctx.fillRect(0, 0, w, h);
+
+      // Draw subtle pixel grid overlay for Minecraft feel
+      ctx.fillStyle = '#1f2026';
+      const tileSize = 15;
+      for (let x = 0; x < w; x += tileSize) {
+        for (let y = 0; y < h; y += tileSize) {
+          if ((x / tileSize + y / tileSize) % 2 === 0) {
+            ctx.fillRect(x, y, tileSize, tileSize);
+          }
+        }
+      }
+
+      // Draw GDG Brackets: < and >
+      // Left Bracket `<`: Red top arm, Blue bottom arm
+      // Right Bracket `>`: Green top arm, Yellow bottom arm
+
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 42;
+
+      // Center pivot points
+      const cx = w / 2;
+      const cy = h / 2;
+
+      // 1. Blue Arm (Bottom-Left of `<`)
+      ctx.strokeStyle = '#4285F4';
+      ctx.beginPath();
+      ctx.moveTo(cx - 125, cy + 85);
+      ctx.lineTo(cx - 40, cy + 5);
+      ctx.stroke();
+
+      // 2. Red Arm (Top-Left of `<`)
+      ctx.strokeStyle = '#EA4335';
+      ctx.beginPath();
+      ctx.moveTo(cx - 125, cy - 85);
+      ctx.lineTo(cx - 40, cy - 5);
+      ctx.stroke();
+
+      // Overlap connector capsule pill curve for `<`
+      ctx.fillStyle = '#EA4335';
+      ctx.beginPath();
+      ctx.arc(cx - 125, cy - 85, 21, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#4285F4';
+      ctx.beginPath();
+      ctx.arc(cx - 125, cy + 85, 21, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Connector vertex for `<`
+      ctx.fillStyle = '#4285F4';
+      ctx.beginPath();
+      ctx.arc(cx - 40, cy + 5, 21, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#EA4335';
+      ctx.beginPath();
+      ctx.arc(cx - 40, cy - 5, 21, 0, Math.PI * 2);
+      ctx.fill();
+
+
+      // 3. Green Arm (Top-Right of `>`)
+      ctx.strokeStyle = '#34A853';
+      ctx.beginPath();
+      ctx.moveTo(cx + 125, cy - 85);
+      ctx.lineTo(cx + 40, cy - 5);
+      ctx.stroke();
+
+      // 4. Yellow Arm (Bottom-Right of `>`)
+      ctx.strokeStyle = '#FBBC04';
+      ctx.beginPath();
+      ctx.moveTo(cx + 125, cy + 85);
+      ctx.lineTo(cx + 40, cy + 5);
+      ctx.stroke();
+
+      // Overlap connector capsule pill curves for `>`
+      ctx.fillStyle = '#34A853';
+      ctx.beginPath();
+      ctx.arc(cx + 125, cy - 85, 21, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#FBBC04';
+      ctx.beginPath();
+      ctx.arc(cx + 125, cy + 85, 21, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#34A853';
+      ctx.beginPath();
+      ctx.arc(cx + 40, cy - 5, 21, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#FBBC04';
+      ctx.beginPath();
+      ctx.arc(cx + 40, cy + 5, 21, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      // Add subtle Minecraft border inset line around image canvas
+      ctx.strokeStyle = '#2d2e36';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(4, 4, w - 8, h - 8);
+
+      gdgDataUrl = canvas.toDataURL();
+
+      // Render to hint canvas as well
+      const hintCanvas = document.getElementById('hint-canvas');
+      const hintCtx = hintCanvas.getContext('2d');
+      hintCtx.drawImage(canvas, 0, 0, 220, 220);
+    }
+
+
+    /* ==========================================================
+       3. GAME LOGIC & SOLVABLE SLIDING PUZZLE
+       ========================================================== */
+    // Grid array representing indices 0..8 (0 is empty slot)
+    // Goal state: [1, 2, 3, 4, 5, 6, 7, 8, 0]
+    let boardState = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+    let moves = 0;
+    let wins = 0;
+    let timerInterval = null;
+    let secondsElapsed = 0;
+    let gameActive = false;
+
+    const puzzleGridEl = document.getElementById('puzzle-grid');
+    const movesEl = document.getElementById('moves-count');
+    const timerEl = document.getElementById('timer-display');
+    const winsEl = document.getElementById('wins-count');
+
+    // Calculate count of inversions in 1D array (excluding 0)
+    function getInversions(arr) {
+      let invCount = 0;
+      const tilesOnly = arr.filter(x => x !== 0);
+      for (let i = 0; i < tilesOnly.length - 1; i++) {
+        for (let j = i + 1; j < tilesOnly.length; j++) {
+          if (tilesOnly[i] > tilesOnly[j]) {
+            invCount++;
+          }
+        }
+      }
+      return invCount;
+    }
+
+    // A 3x3 sliding puzzle state is solvable iff inversion count is EVEN!
+    function isSolvable(arr) {
+      return getInversions(arr) % 2 === 0;
+    }
+
+    // Check if current board matches solved state
+    function isSolved(arr) {
+      for (let i = 0; i < 8; i++) {
+        if (arr[i] !== i + 1) return false;
+      }
+      return arr[8] === 0;
+    }
+
+    // Generate a newly randomized, GUARANTEED SOLVABLE board
+    function generateSolvableBoard() {
+      let arr = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+      
+      // Shuffle array (Fisher-Yates)
+      do {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        
+        // If odd inversions, swap first two non-zero items to force even inversions
+        if (!isSolvable(arr)) {
+          // Find first two non-zero indices
+          let i1 = -1, i2 = -1;
+          for (let idx = 0; idx < arr.length; idx++) {
+            if (arr[idx] !== 0) {
+              if (i1 === -1) i1 = idx;
+              else if (i2 === -1) { i2 = idx; break; }
+            }
+          }
+          [arr[i1], arr[i2]] = [arr[i2], arr[i1]];
+        }
+      } while (isSolved(arr)); // Ensure it is not already solved!
+
+      return arr;
+    }
+
+    // Render Tiles into DOM
+    function renderBoard() {
+      puzzleGridEl.innerHTML = '';
+      const isNumShown = document.getElementById('num-toggle').checked;
+
+      // Grid dimensions (3x3)
+      // Tile slice coordinates in background image
+      const tileSize = 110; // matches CSS tile px offset inside frame
+      const framePadding = 6;
+
+      boardState.forEach((tileVal, currentPos) => {
+        const row = Math.floor(currentPos / 3);
+        const col = currentPos % 3;
+
+        const tileEl = document.createElement('div');
+        tileEl.className = 'tile' + (tileVal === 0 ? ' empty' : '');
+        
+        // Calculate absolute position inside 360x360 container
+        // 3 columns: col 0 -> 6px, col 1 -> 120px, col 2 -> 234px
+        const leftPos = framePadding + col * (tileSize + 4);
+        const topPos = framePadding + row * (tileSize + 4);
+
+        tileEl.style.left = leftPos + 'px';
+        tileEl.style.top = topPos + 'px';
+
+        if (tileVal !== 0) {
+          // Slice GDG image based on target solved value (tileVal - 1)
+          const targetPos = tileVal - 1;
+          const targetRow = Math.floor(targetPos / 3);
+          const targetCol = targetPos % 3;
+
+          tileEl.style.backgroundImage = `url(${gdgDataUrl})`;
+          // Canvas size is 450x450, each tile slice is 150x150
+          tileEl.style.backgroundSize = '330px 330px'; 
+          tileEl.style.backgroundPosition = `-${targetCol * 110}px -${targetRow * 110}px`;
+
+          // Tile number overlay
+          const numSpan = document.createElement('span');
+          numSpan.className = 'tile-number' + (isNumShown ? '' : ' hidden');
+          numSpan.innerText = tileVal;
+          tileEl.appendChild(numSpan);
+
+          // Click handler
+          tileEl.addEventListener('click', () => handleTileClick(currentPos));
+        }
+
+        puzzleGridEl.appendChild(tileEl);
+      });
+    }
+
+    // Check if position can move (adjacent to 0)
+    function canMove(pos) {
+      const emptyPos = boardState.indexOf(0);
+      const row1 = Math.floor(pos / 3), col1 = pos % 3;
+      const row2 = Math.floor(emptyPos / 3), col2 = emptyPos % 3;
+      return (Math.abs(row1 - row2) + Math.abs(col1 - col2)) === 1;
+    }
+
+    // Handle Tile Click
+    function handleTileClick(pos) {
+      if (!gameActive) return;
+      const emptyPos = boardState.indexOf(0);
+
+      if (canMove(pos)) {
+        // Swap in array
+        [boardState[pos], boardState[emptyPos]] = [boardState[emptyPos], boardState[pos]];
+        moves++;
+        movesEl.innerText = moves;
+
+        playTileSound();
+        renderBoard();
+
+        // Check for Win
+        if (isSolved(boardState)) {
+          triggerWin();
+        }
+      }
+    }
+
+    // Keyboard WASD / Arrow Keys Support
+    document.addEventListener('keydown', (e) => {
+      if (!gameActive) return;
+      const emptyPos = boardState.indexOf(0);
+      const emptyRow = Math.floor(emptyPos / 3);
+      const emptyCol = emptyPos % 3;
+      let targetPos = -1;
+
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        if (emptyRow < 2) targetPos = (emptyRow + 1) * 3 + emptyCol; // Move tile below UP
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        if (emptyRow > 0) targetPos = (emptyRow - 1) * 3 + emptyCol; // Move tile above DOWN
+      } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        if (emptyCol < 2) targetPos = emptyRow * 3 + (emptyCol + 1); // Move tile right to LEFT
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        if (emptyCol > 0) targetPos = emptyRow * 3 + (emptyCol - 1); // Move tile left to RIGHT
+      }
+
+      if (targetPos !== -1) {
+        handleTileClick(targetPos);
+      }
+    });
+
+    /* ==========================================================
+       4. TIMER & GAME LIFECYCLE
+       ========================================================== */
+    function startTimer() {
+      clearInterval(timerInterval);
+      secondsElapsed = 0;
+      timerEl.innerText = '00:00';
+      timerInterval = setInterval(() => {
+        secondsElapsed++;
+        const mins = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+        const secs = String(secondsElapsed % 60).padStart(2, '0');
+        timerEl.innerText = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    function shuffleGame() {
+      playShuffleSound();
+      boardState = generateSolvableBoard();
+      moves = 0;
+      movesEl.innerText = '0';
+      gameActive = true;
+      renderBoard();
+      startTimer();
+    }
+
+    function toggleNumbers() {
+      const isNumShown = document.getElementById('num-toggle').checked;
+      const numElements = document.querySelectorAll('.tile-number');
+      numElements.forEach(el => {
+        if (isNumShown) el.classList.remove('hidden');
+        else el.classList.add('hidden');
+      });
+    }
+
+    function toggleHint(show) {
+      const hintEl = document.getElementById('hint-modal');
+      if (show) hintEl.classList.add('active');
+      else hintEl.classList.remove('active');
+    }
+
+    /* ==========================================================
+       5. WIN CELEBRATION & MODAL
+       ========================================================== */
+    function triggerWin() {
+      gameActive = false;
+      stopTimer();
+      wins++;
+      winsEl.innerText = wins;
+
+      playWinSound();
+
+      // Show Achievement Toast
+      const toast = document.getElementById('achievement-toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3500);
+
+      // Populate & Show Win Modal
+      document.getElementById('modal-moves').innerText = moves;
+      document.getElementById('modal-time').innerText = timerEl.innerText;
+      
+      setTimeout(() => {
+        document.getElementById('win-modal').classList.add('active');
+      }, 400);
+    }
+
+    function closeWinModalAndRestart() {
+      document.getElementById('win-modal').classList.remove('active');
+      shuffleGame();
+    }
+
+
+    /* ==========================================================
+       6. MINECRAFT AMBIENT PARTICLE ENGINE
+       ========================================================== */
+    const pCanvas = document.getElementById('particle-canvas');
+    const pCtx = pCanvas.getContext('2d');
+    let particles = [];
+
+    function resizeParticleCanvas() {
+      pCanvas.width = window.innerWidth;
+      pCanvas.height = window.innerHeight;
+    }
+
+    class Particle {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * pCanvas.width;
+        this.y = pCanvas.height + Math.random() * 20;
+        this.size = Math.random() * 4 + 2;
+        this.speedY = Math.random() * 0.8 + 0.3;
+        this.speedX = (Math.random() - 0.5) * 0.4;
+        this.opacity = Math.random() * 0.5 + 0.2;
+        // Pixel block color (Spore / Emerald green / Portal purple / Gold dust)
+        const colors = ['#34A853', '#4285F4', '#FBBC04', '#EA4335', '#55ff55'];
+        this.color = colors[Math.floor(Math.random() * colors.length)];
+      }
+      update() {
+        this.y -= this.speedY;
+        this.x += this.speedX;
+        if (this.y < -10) this.reset();
+      }
+      draw() {
+        pCtx.fillStyle = this.color;
+        pCtx.globalAlpha = this.opacity;
+        pCtx.fillRect(Math.floor(this.x), Math.floor(this.y), this.size, this.size);
+      }
+    }
+
+    function initParticles() {
+      resizeParticleCanvas();
+      window.addEventListener('resize', resizeParticleCanvas);
+      particles = [];
+      for (let i = 0; i < 40; i++) {
+        particles.push(new Particle());
+      }
+      animateParticles();
+    }
+
+    function animateParticles() {
+      pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+      requestAnimationFrame(animateParticles);
+    }
+
+
+    /* ==========================================================
+       7. INITIALIZATION ON PAGE LOAD
+       ========================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      drawGDGLogo();
+      initParticles();
+      shuffleGame(); // Initial automatic shuffle into solvable state!
+    });
+  </script>
+</body>
+</html>
